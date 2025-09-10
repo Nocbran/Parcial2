@@ -12,26 +12,8 @@ class Calificacion:
         return (self.cultura + self.proyeccion + self.entrevista) / 3
 
 
-
-class Candidata:
-    def __init__(self,codigo,nombre,edad,institucion,municipio):
-        self.codigo = codigo
-        self.nombre = nombre
-        self.edad = edad
-        self.institucion = institucion
-        self.municipio = municipio
-        self.calificaciones = []
-
-    def AgregarCalificacion(self,calificacion):
-        self.calificaciones.append(calificacion)
-
-    def PuntajeFinal(self):
-        if not self.calificaciones:
-            return 0
-        return sum(i.promedio() for i in self.calificaciones) / len(self.calificaciones)
-
 class Concurso:
-    def init(self):
+    def __init__(self):
         self.candidatas = {}
         self.jurados = {}
 
@@ -64,74 +46,51 @@ class Concurso:
                       reverse=True)
 
     def GuardarCandidata(self,archivo="candidatas.txt"):
-        with open(archivo, "w", encoding="utf") as arch:
+        with open(archivo, "w", encoding="utf-8") as arch:
             for codigo,datos in self.candidatas.items():
                 arch.write(f"{codigo}:{datos['nombre']}:{datos['edad']}:{datos['institucion']}:{datos['municipio']}\n")
-            for cal in datos["calificaciones"]:
-                arch.write(f"CAL:{codigo}:{cal.cultura}:{cal.proyeccion}:{cal.entrevista}\n")
+                for cal in datos["calificaciones"]:
+                    arch.write(f"CAL:{codigo}:{cal.cultura}:{cal.proyeccion}:{cal.entrevista}\n")
 
             for nombre,datos in self.jurados.items():
                 arch.write(f"JUR:{nombre}:{datos['especialidad']}\n")
 
+    def CargarCandidata(self,archivo="candidatas.txt"):
+        try:
+            self.candidatas = {}
+            self.jurados = {}
 
-import tkinter as tk
-from tkinter import messagebox
+            with open(archivo, "r", encoding="utf-8") as arch:
+                for linea in arch:
+                    linea = linea.strip()
+                    if not linea:
+                        continue
 
+                    partes = linea.split(":")
+                    if linea.startswith("CAL:"):
+                        _,codigo,cultura,proyeccion,entrevista = partes
+                        self.AgregarCalificacion(codigo, int(cultura),int(proyeccion), int(entrevista))
 
+                    elif linea.startswith("JUR:"):
+                        _, nombre,especialidad = partes
+                        self.RegistrarCandidata(nombre , especialidad)
 
-class Calificacion:
-    def _init_(self, cultura, proyeccion, entrevista):
-        self.cultura = cultura
-        self.proyeccion = proyeccion
-        self.entrevista = entrevista
-
-    def promedio(self):
-        return (self.cultura + self.proyeccion + self.entrevista) / 3
-
-
-class Candidata:
-    def _init_(self, codigo, nombre, edad, institucion, municipio):
-        self.codigo = codigo
-        self.nombre = nombre
-        self.edad = edad
-        self.institucion = institucion
-        self.municipio = municipio
-        self.calificaciones = []
-
-    def agregar_calificacion(self, calificacion):
-        self.calificaciones.append(calificacion)
-
-    def puntaje_final(self):
-        if not self.calificaciones:
-            return 0
-        return sum(c.promedio() for c in self.calificaciones) / len(self.calificaciones)
+                    else:
+                        codigo,nombre,edad,institucion,municipio = partes
+                        self.RegistrarCandidata(codigo,nombre,edad,institucion,municipio)
+        except FileNotFoundError:
+            messagebox.showerror("Error,"f"No existe el archivo {archivo}")
 
 
 class Jurado:
-    def _init_(self, nombre, especialidad):
+    def __init__(self, nombre, especialidad):
         self.nombre = nombre
         self.especialidad = especialidad
 
 
-class Concurso:
-    def _init_(self):
-        self.candidatas = []
-        self.jurados = []
-
-    def registrar_candidata(self, candidata):
-        self.candidatas.append(candidata)
-
-    def registrar_jurado(self, jurado):
-        self.jurados.append(jurado)
-
-    def ranking(self):
-        return sorted(self.candidatas, key=lambda c: c.puntaje_final(), reverse=True)
-
-
-# -------------------- VENTANA PERSONALIZADA -------------------- #
 
 class VentanaEntrada(tk.Toplevel):
-    def _init_(self, parent, titulo, campos):
+    def __init__(self, parent, titulo, campos):
         super()._init_(parent)
         self.title(titulo)
         self.resultados = {}
@@ -157,16 +116,16 @@ class VentanaEntrada(tk.Toplevel):
 
 
 class App:
-    def _init_(self, root, concurso):
-        self.root = root
+    def __init__(self, ventana, concurso):
+        self.ventana = ventana
         self.concurso = concurso
-        root.title("Concurso de Candidatas")
-        root.geometry("500x400")
+        ventana.title("Concurso de Candidatas")
+        ventana.geometry("500x400")
 
-        tk.Button(root, text="Registrar Candidata", command=self.registrar_candidata).pack(pady=5)
-        tk.Button(root, text="Registrar Jurado", command=self.registrar_jurado).pack(pady=5)
-        tk.Button(root, text="Agregar Calificación", command=self.agregar_calificacion).pack(pady=5)
-        tk.Button(root, text="Mostrar Ranking", command=self.mostrar_ranking).pack(pady=5)
+        tk.Button(ventana, text="Registrar Candidata", command=self.registrar_candidata).pack(pady=5)
+        tk.Button(ventana, text="Registrar Jurado", command=self.registrar_jurado).pack(pady=5)
+        tk.Button(ventana, text="Agregar Calificación", command=self.agregar_calificacion).pack(pady=5)
+        tk.Button(ventana, text="Mostrar Ranking", command=self.mostrar_ranking).pack(pady=5)
 
     def registrar_candidata(self):
         campos = ["Código", "Nombre", "Edad", "Institución", "Municipio"]
@@ -226,10 +185,8 @@ class App:
         messagebox.showinfo("Ranking", texto)
 
 
-# -------------------- MAIN -------------------- #
-
-if _name_ == "_main_":
+if __name__ == "_main_":
     concurso = Concurso()
-    root = tk.Tk()
-    app = App(root, concurso)
-    root.mainloop()
+    ventana = tk.Tk()
+    app = App(ventana, concurso)
+    ventana.mainloop()
