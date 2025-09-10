@@ -73,25 +73,18 @@ class Concurso:
 
                     elif linea.startswith("JUR:"):
                         _, nombre,especialidad = partes
-                        self.RegistrarCandidata(nombre , especialidad)
+                        self.RegistrarJurado(nombre , especialidad)
 
                     else:
                         codigo,nombre,edad,institucion,municipio = partes
-                        self.RegistrarCandidata(codigo,nombre,edad,institucion,municipio)
+                        self.RegistrarCandidata(codigo,nombre,int(edad),institucion,municipio)
         except FileNotFoundError:
             messagebox.showerror("Error,"f"No existe el archivo {archivo}")
 
 
-class Jurado:
-    def __init__(self, nombre, especialidad):
-        self.nombre = nombre
-        self.especialidad = especialidad
-
-
-
 class VentanaEntrada(tk.Toplevel):
     def __init__(self, parent, titulo, campos):
-        super()._init_(parent)
+        super().__init__(parent)
         self.title(titulo)
         self.resultados = {}
         self.entradas = {}
@@ -129,25 +122,23 @@ class App:
 
     def registrar_candidata(self):
         campos = ["Código", "Nombre", "Edad", "Institución", "Municipio"]
-        ventana = VentanaEntrada(self.root, "Registrar Candidata", campos)
+        ventana = VentanaEntrada(self.ventana, "Registrar Candidata", campos)
         datos = ventana.resultados
         if datos.get("Código") and datos.get("Nombre"):
             try:
                 edad = int(datos.get("Edad"))
             except:
                 edad = 0
-            candidata = Candidata(datos["Código"], datos["Nombre"], edad,
+            self.concurso.RegistrarCandidata(datos["Código"], datos["Nombre"], edad,
                                   datos.get("Institución",""), datos.get("Municipio",""))
-            self.concurso.registrar_candidata(candidata)
             messagebox.showinfo("Éxito", f"Candidata {datos['Nombre']} registrada.")
 
     def registrar_jurado(self):
         campos = ["Nombre", "Especialidad"]
-        ventana = VentanaEntrada(self.root, "Registrar Jurado", campos)
+        ventana = VentanaEntrada(self.ventana, "Registrar Jurado", campos)
         datos = ventana.resultados
         if datos.get("Nombre"):
-            jurado = Jurado(datos["Nombre"], datos.get("Especialidad",""))
-            self.concurso.registrar_jurado(jurado)
+            self.concurso.RegistrarJurado(datos["Nombre"], datos.get("Especialidad",""))
             messagebox.showinfo("Éxito", f"Jurado {datos['Nombre']} registrado.")
 
     def agregar_calificacion(self):
@@ -155,15 +146,14 @@ class App:
             messagebox.showwarning("Atención","No hay candidatas registradas.")
             return
 
-        cod_ventana = VentanaEntrada(self.root, "Calificación", ["Código de Candidata"])
+        cod_ventana = VentanaEntrada(self.ventana, "Calificación", ["Código de Candidata"])
         codigo = cod_ventana.resultados.get("Código de Candidata")
-        candidata = next((c for c in self.concurso.candidatas if c.codigo == codigo), None)
-        if not candidata:
+        if codigo not in self.concurso.candidatas:
             messagebox.showerror("Error", "Candidata no encontrada.")
             return
 
         campos = ["Cultura (0-100)", "Proyección (0-100)", "Entrevista (0-100)"]
-        cal_ventana = VentanaEntrada(self.root, f"Calificar {candidata.nombre}", campos)
+        cal_ventana = VentanaEntrada(self.ventana, f"Calificar {self.concurso.candidatas[codigo]['nombre']}", campos)
         datos = cal_ventana.resultados
         try:
             cultura = int(datos.get(campos[0],0))
@@ -171,21 +161,19 @@ class App:
             entrevista = int(datos.get(campos[2],0))
         except:
             cultura = proyeccion = entrevista = 0
-        cal = Calificacion(cultura, proyeccion, entrevista)
-        candidata.agregar_calificacion(cal)
-        messagebox.showinfo("Éxito", f"Calificación registrada para {candidata.nombre}.")
+        self.concurso.AgregarCalificacion(codigo,cultura,proyeccion,entrevista)
+        messagebox.showinfo("Éxito", f"Calificación registrada para {self.concurso.candidatas[codigo]['nombre']}.")
 
     def mostrar_ranking(self):
-        ranking = self.concurso.ranking()
+        ranking = self.concurso.Ranking()
         if not ranking:
             messagebox.showinfo("Ranking", "No hay candidatas registradas.")
             return
-        texto = "\n".join([f"{i+1}. {c.nombre} - Puntaje: {c.puntaje_final():.2f}"
-                           for i, c in enumerate(ranking)])
+        texto = "\n".join([f"{i + 1}. {datos['nombre']} - Puntaje: {self.concurso.PuntajeFinal(codigo):.2f}"
+                           for i, (codigo, datos) in enumerate(ranking)])
         messagebox.showinfo("Ranking", texto)
 
-
-if __name__ == "_main_":
+if __name__ == "__main__":
     concurso = Concurso()
     ventana = tk.Tk()
     app = App(ventana, concurso)
