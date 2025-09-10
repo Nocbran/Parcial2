@@ -10,7 +10,6 @@ class Calificacion:
     def promedio(self):
         return (self.cultura + self.proyeccion + self.entrevista) / 3
 
-
 class Concurso:
     def __init__(self, nombre, fecha):
         self.nombre = nombre
