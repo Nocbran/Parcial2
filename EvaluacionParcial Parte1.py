@@ -1,9 +1,8 @@
-import itertools
 import tkinter as tk
-from tkinter import messagebox, simpledialog
+from tkinter import messagebox
 
 class Calificacion:
-    def __init__(self,cultura,proyeccion,entrevista):
+    def __init__(self, cultura, proyeccion, entrevista):
         self.cultura = cultura
         self.proyeccion = proyeccion
         self.entrevista = entrevista
@@ -13,168 +12,194 @@ class Calificacion:
 
 
 class Concurso:
-    def __init__(self):
+    def __init__(self, nombre, fecha):
+        self.nombre = nombre
+        self.fecha = fecha
         self.candidatas = {}
         self.jurados = {}
 
-    def RegistrarCandidata(self, codigo,nombre,edad,institucion,municiopio):
+    def RegistrarCandidata(self, codigo, nombre, edad, institucion, municipio):
+        if codigo in self.candidatas:
+            raise ValueError(f"El código {codigo} ya está registrado")
         self.candidatas[codigo] = {
-            "nombre" : nombre,
-            "edad" : edad,
-            "institucion" : institucion,
-            "municipio" : municiopio,
-            "calificaciones" : []
+            "nombre": nombre,
+            "edad": edad,
+            "institucion": institucion,
+            "municipio": municipio,
+            "calificaciones": []
         }
 
-    def RegistrarJurado(self,nombre,especialidad):
-        self.jurados[nombre] = {"especialidad":especialidad}
+    def RegistrarJurado(self, nombre, especialidad):
+        if nombre in self.jurados:
+            raise ValueError(f"El jurado {nombre} ya está registrado")
+        self.jurados[nombre] = {"especialidad": especialidad}
 
-    def AgregarCalificacion(self,codigo,cultura,proyeccion,entrevista):
-        if codigo in self.candidatas:
-            cal = Calificacion(cultura,proyeccion,entrevista)
-            self.candidatas[codigo]["calificaciones"].append(cal)
+    def AgregarCalificacion(self, codigo, cultura, proyeccion, entrevista):
+        if codigo not in self.candidatas:
+            raise ValueError("Candidata no encontrada")
+        cal = Calificacion(cultura, proyeccion, entrevista)
+        self.candidatas[codigo]["calificaciones"].append(cal)
 
-    def PuntajeFinal(self,codigo):
+    def PuntajeFinal(self, codigo):
         calificaciones = self.candidatas[codigo]["calificaciones"]
         if not calificaciones:
             return 0
         return sum(i.promedio() for i in calificaciones) / len(calificaciones)
 
     def Ranking(self):
-        return sorted(self.candidatas.items(),
-                      key = lambda  i: self.PuntajeFinal(i[0]),
-                      reverse=True)
-
-    def GuardarCandidata(self,archivo="candidatas.txt"):
-        with open(archivo, "w", encoding="utf-8") as arch:
-            for codigo,datos in self.candidatas.items():
-                arch.write(f"{codigo}:{datos['nombre']}:{datos['edad']}:{datos['institucion']}:{datos['municipio']}\n")
-                for cal in datos["calificaciones"]:
-                    arch.write(f"CAL:{codigo}:{cal.cultura}:{cal.proyeccion}:{cal.entrevista}\n")
-
-            for nombre,datos in self.jurados.items():
-                arch.write(f"JUR:{nombre}:{datos['especialidad']}\n")
-
-    def CargarCandidata(self,archivo="candidatas.txt"):
-        try:
-            self.candidatas = {}
-            self.jurados = {}
-
-            with open(archivo, "r", encoding="utf-8") as arch:
-                for linea in arch:
-                    linea = linea.strip()
-                    if not linea:
-                        continue
-
-                    partes = linea.split(":")
-                    if linea.startswith("CAL:"):
-                        _,codigo,cultura,proyeccion,entrevista = partes
-                        self.AgregarCalificacion(codigo, int(cultura),int(proyeccion), int(entrevista))
-
-                    elif linea.startswith("JUR:"):
-                        _, nombre,especialidad = partes
-                        self.RegistrarJurado(nombre , especialidad)
-
-                    else:
-                        codigo,nombre,edad,institucion,municipio = partes
-                        self.RegistrarCandidata(codigo,nombre,int(edad),institucion,municipio)
-        except FileNotFoundError:
-            messagebox.showerror("Error,"f"No existe el archivo {archivo}")
+        return sorted(
+            self.candidatas.items(),
+            key=lambda i: self.PuntajeFinal(i[0]),
+            reverse=True
+        )
 
 
-class VentanaEntrada(tk.Toplevel):
-    def __init__(self, parent, titulo, campos):
-        super().__init__(parent)
-        self.title(titulo)
-        self.resultados = {}
-        self.entradas = {}
-
-        for campo in campos:
-            tk.Label(self, text=campo + ":").pack(pady=2)
-            entry = tk.Entry(self)
-            entry.pack(pady=2)
-            self.entradas[campo] = entry
-
-        tk.Button(self, text="Aceptar", command=self.guardar).pack(pady=5)
-        tk.Button(self, text="Cancelar", command=self.destroy).pack(pady=5)
-
-        self.transient(parent)
-        self.grab_set()
-        parent.wait_window(self)
-
-    def guardar(self):
-        for campo, entry in self.entradas.items():
-            self.resultados[campo] = entry.get()
-        self.destroy()
-
-
-class App:
-    def __init__(self, ventana, concurso):
-        self.ventana = ventana
+class ConcursoCandidatasApp:
+    def __init__(self, concurso):
         self.concurso = concurso
-        ventana.title("Concurso de Candidatas")
-        ventana.geometry("500x400")
+        self.root = tk.Tk()
+        self.root.title(concurso.nombre)
+        self.root.geometry("600x400")
 
-        tk.Button(ventana, text="Registrar Candidata", command=self.registrar_candidata).pack(pady=5)
-        tk.Button(ventana, text="Registrar Jurado", command=self.registrar_jurado).pack(pady=5)
-        tk.Button(ventana, text="Agregar Calificación", command=self.agregar_calificacion).pack(pady=5)
-        tk.Button(ventana, text="Mostrar Ranking", command=self.mostrar_ranking).pack(pady=5)
+        self.menu()
+
+        tk.Label(
+            self.root,
+            text=f"{concurso.nombre}\nFecha: {concurso.fecha}",
+            font=("Arial", 12, "bold"),
+            justify="center"
+        ).pack(pady=50)
+
+        self.root.mainloop()
+
+    def menu(self):
+        barra = tk.Menu(self.root)
+        opciones = tk.Menu(barra, tearoff=0)
+        opciones.add_command(label="Registrar Candidata", command=self.registrar_candidata)
+        opciones.add_command(label="Registrar Jurado", command=self.registrar_jurado)
+        opciones.add_command(label="Agregar Calificación", command=self.agregar_calificacion)
+        opciones.add_command(label="Listar Candidatas", command=self.listar_candidatas)
+        opciones.add_command(label="Ver Ranking", command=self.ver_ranking)
+        opciones.add_separator()
+        opciones.add_command(label="Salir", command=self.root.quit)
+        barra.add_cascade(label="Opciones", menu=opciones)
+        self.root.config(menu=barra)
 
     def registrar_candidata(self):
+        ventana = tk.Toplevel(self.root)
+        ventana.title("Registrar Candidata")
+
         campos = ["Código", "Nombre", "Edad", "Institución", "Municipio"]
-        ventana = VentanaEntrada(self.ventana, "Registrar Candidata", campos)
-        datos = ventana.resultados
-        if datos.get("Código") and datos.get("Nombre"):
+        entradas = {}
+        for campo in campos:
+            tk.Label(ventana, text=f"{campo}:").pack()
+            entry = tk.Entry(ventana)
+            entry.pack()
+            entradas[campo] = entry
+
+        def guardar():
             try:
-                edad = int(datos.get("Edad"))
-            except:
-                edad = 0
-            self.concurso.RegistrarCandidata(datos["Código"], datos["Nombre"], edad,
-                                  datos.get("Institución",""), datos.get("Municipio",""))
-            messagebox.showinfo("Éxito", f"Candidata {datos['Nombre']} registrada.")
+                codigo = entradas["Código"].get().strip()
+                nombre = entradas["Nombre"].get().strip()
+                edad = int(entradas["Edad"].get().strip() or 0)
+                institucion = entradas["Institución"].get().strip()
+                municipio = entradas["Municipio"].get().strip()
+                self.concurso.RegistrarCandidata(codigo, nombre, edad, institucion, municipio)
+                messagebox.showinfo("Éxito", f"Candidata {nombre} registrada")
+                ventana.destroy()
+            except ValueError as e:
+                messagebox.showerror("Error", str(e))
+
+        tk.Button(ventana, text="Guardar", command=guardar).pack(pady=5)
 
     def registrar_jurado(self):
-        campos = ["Nombre", "Especialidad"]
-        ventana = VentanaEntrada(self.ventana, "Registrar Jurado", campos)
-        datos = ventana.resultados
-        if datos.get("Nombre"):
-            self.concurso.RegistrarJurado(datos["Nombre"], datos.get("Especialidad",""))
-            messagebox.showinfo("Éxito", f"Jurado {datos['Nombre']} registrado.")
+        ventana = tk.Toplevel(self.root)
+        ventana.title("Registrar Jurado")
+
+        tk.Label(ventana, text="Nombre:").pack()
+        entry_nombre = tk.Entry(ventana)
+        entry_nombre.pack()
+
+        tk.Label(ventana, text="Especialidad:").pack()
+        entry_especialidad = tk.Entry(ventana)
+        entry_especialidad.pack()
+
+        def guardar():
+            try:
+                nombre = entry_nombre.get().strip()
+                especialidad = entry_especialidad.get().strip()
+                self.concurso.RegistrarJurado(nombre, especialidad)
+                messagebox.showinfo("Éxito", f"Jurado {nombre} registrado")
+                ventana.destroy()
+            except ValueError as e:
+                messagebox.showerror("Error", str(e))
+
+        tk.Button(ventana, text="Guardar", command=guardar).pack(pady=5)
 
     def agregar_calificacion(self):
         if not self.concurso.candidatas:
-            messagebox.showwarning("Atención","No hay candidatas registradas.")
+            messagebox.showwarning("Aviso", "No hay candidatas registradas")
             return
 
-        cod_ventana = VentanaEntrada(self.ventana, "Calificación", ["Código de Candidata"])
-        codigo = cod_ventana.resultados.get("Código de Candidata")
-        if codigo not in self.concurso.candidatas:
-            messagebox.showerror("Error", "Candidata no encontrada.")
+        ventana = tk.Toplevel(self.root)
+        ventana.title("Agregar Calificación")
+
+        tk.Label(ventana, text="Código de la Candidata:").pack()
+        entry_codigo = tk.Entry(ventana)
+        entry_codigo.pack()
+
+        entradas = {}
+        for crit in ["Cultura (0-100)", "Proyección (0-100)", "Entrevista (0-100)"]:
+            tk.Label(ventana, text=crit).pack()
+            entry = tk.Entry(ventana)
+            entry.pack()
+            entradas[crit] = entry
+
+        def guardar():
+            try:
+                codigo = entry_codigo.get().strip()
+                if codigo not in self.concurso.candidatas:
+                    raise ValueError("Candidata no encontrada")
+                cultura = int(entradas["Cultura (0-100)"].get().strip())
+                proyeccion = int(entradas["Proyección (0-100)"].get().strip())
+                entrevista = int(entradas["Entrevista (0-100)"].get().strip())
+                self.concurso.AgregarCalificacion(codigo, cultura, proyeccion, entrevista)
+                messagebox.showinfo("Éxito", f"Calificación registrada para {self.concurso.candidatas[codigo]['nombre']}")
+                ventana.destroy()
+            except ValueError as e:
+                messagebox.showerror("Error", str(e))
+
+        tk.Button(ventana, text="Guardar", command=guardar).pack(pady=5)
+
+    def listar_candidatas(self):
+        ventana = tk.Toplevel(self.root)
+        ventana.title("Listado de Candidatas")
+        if not self.concurso.candidatas:
+            tk.Label(ventana, text="No hay candidatas registradas.").pack()
             return
+        for codigo, datos in self.concurso.candidatas.items():
+            texto = f"{codigo} - {datos['nombre']} | Edad: {datos['edad']} | {datos['institucion']} | {datos['municipio']}"
+            tk.Label(ventana, text=texto, anchor="w", justify="left").pack(fill="x", padx=5, pady=2)
+            tk.Label(ventana, text="-----------------------------------------").pack()
 
-        campos = ["Cultura (0-100)", "Proyección (0-100)", "Entrevista (0-100)"]
-        cal_ventana = VentanaEntrada(self.ventana, f"Calificar {self.concurso.candidatas[codigo]['nombre']}", campos)
-        datos = cal_ventana.resultados
-        try:
-            cultura = int(datos.get(campos[0],0))
-            proyeccion = int(datos.get(campos[1],0))
-            entrevista = int(datos.get(campos[2],0))
-        except:
-            cultura = proyeccion = entrevista = 0
-        self.concurso.AgregarCalificacion(codigo,cultura,proyeccion,entrevista)
-        messagebox.showinfo("Éxito", f"Calificación registrada para {self.concurso.candidatas[codigo]['nombre']}.")
-
-    def mostrar_ranking(self):
+    def ver_ranking(self):
+        ventana = tk.Toplevel(self.root)
+        ventana.title("Ranking Final")
         ranking = self.concurso.Ranking()
         if not ranking:
-            messagebox.showinfo("Ranking", "No hay candidatas registradas.")
+            tk.Label(ventana, text="No hay candidatas registradas.").pack()
             return
-        texto = "\n".join([f"{i + 1}. {datos['nombre']} - Puntaje: {self.concurso.PuntajeFinal(codigo):.2f}"
-                           for i, (codigo, datos) in enumerate(ranking)])
-        messagebox.showinfo("Ranking", texto)
+        tk.Label(ventana, text="Ranking Final (Mayor puntaje a menor):", font=("Arial", 12, "bold")).pack(pady=5)
+        for i, (codigo, datos) in enumerate(ranking, start=1):
+            tk.Label(
+                ventana,
+                text=f"{i}. {datos['nombre']} - Puntaje: {self.concurso.PuntajeFinal(codigo):.2f}",
+                anchor="w", justify="left"
+            ).pack(fill="x", padx=5, pady=2)
+            tk.Label(ventana, text="-----------------------------------------").pack()
+
+
 
 if __name__ == "__main__":
-    concurso = Concurso()
-    ventana = tk.Tk()
-    app = App(ventana, concurso)
-    ventana.mainloop()
+    concurso = Concurso("Concurso de Candidatas", "2025-09-14")
+    ConcursoCandidatasApp(concurso)
