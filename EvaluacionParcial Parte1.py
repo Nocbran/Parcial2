@@ -198,7 +198,6 @@ class ConcursoCandidatasApp:
             tk.Label(ventana, text="-----------------------------------------").pack()
 
 
-
 if __name__ == "__main__":
     concurso = Concurso("Concurso de Candidatas", "2025-09-14")
     ConcursoCandidatasApp(concurso)
